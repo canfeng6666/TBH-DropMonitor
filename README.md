@@ -3,7 +3,6 @@
 这是一个用于 Taskbar Hero 的掉落列表监控工具开源整理版。  
 程序通过 Frida 读取游戏掉落列表，通过 Umi-OCR 识别开箱提示，并在监控物品出现时暂停循环、等待掉落列表刷新。
 
-> 本仓库是开源版：已移除网络验证、卡密登录、卡密缓存和心跳逻辑。
 
 ## 功能
 
@@ -16,15 +15,6 @@
 - 支持 Umi-OCR HTTP 接口识别宝箱获得提示。
 - 支持市场价格接口显示价格。
 - UI 使用外部 HTML 文件，后续修改界面主要改 `jade_drop_items_ui/index.html`。
-
-## 开源版改动
-
-- 删除网络验证窗口和卡密验证逻辑。
-- 删除卡密缓存、心跳线程、心跳接口。
-- 启动后直接进入主界面。
-- 版本更新接口改为本机地址：`http://127.0.0.1/version`。
-- 删除监控列表的“预期”列和对应过滤逻辑。
-- 默认价格接口仍保留，可按需自行修改。
 
 ## 目录结构
 
@@ -135,69 +125,6 @@ python -m nuitka --standalone --onefile --windows-console-mode=disable --windows
 - 打包路径尽量使用英文目录，避免 Nuitka/VS 链接器在部分电脑上因为中文路径失败。
 - 打包输出目录 `build_ui_umi/` 已在 `.gitignore` 中忽略，不建议上传到 GitHub。
 
-## 上传到 GitHub
-
-### 方式一：网页上传
-
-1. 打开 [GitHub](https://github.com/) 并登录。
-2. 点击右上角 `+`，选择 `New repository`。
-3. 填写仓库名，例如 `TBH-DropMonitor-OpenSource`。
-4. 选择 `Public` 或 `Private`。
-5. 不要勾选自动生成 README，因为本项目已经有 README。
-6. 创建仓库后，点击 `uploading an existing file`。
-7. 把本目录里的文件拖进去。
-8. 不要上传这些目录或文件：
-   - `build_ui_umi/`
-   - `output/`
-   - `version/`
-   - `__pycache__/`
-   - `*.log`
-9. 点击 `Commit changes`。
-
-### 方式二：Git 命令上传
-
-先进入项目目录：
-
-```powershell
-cd /d C:\Users\CanFeng\Downloads\tbh_drop_info\TBH_DropMonitor_OpenSource_20260706
-```
-
-初始化仓库：
-
-```powershell
-git init
-git add .
-git commit -m "Initial open source release"
-```
-
-在 GitHub 创建空仓库后，把下面地址替换成你的仓库地址：
-
-```powershell
-git branch -M main
-git remote add origin https://github.com/你的用户名/你的仓库名.git
-git push -u origin main
-```
-
-以后更新代码：
-
-```powershell
-git add .
-git commit -m "Update"
-git push
-```
-
-## 建议发布前检查
-
-```powershell
-python -m py_compile drop_items_jade_hybrid_ui_umi.py
-node --check drop_items_info_v4_new2.js
-```
-
-确认没有误上传：
-
-```powershell
-git status
-```
 
 ## 打赏
 
