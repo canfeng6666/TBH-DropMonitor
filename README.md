@@ -73,7 +73,6 @@ python drop_items_jade_hybrid_ui_umi.py
 在项目目录打开终端：
 
 ```powershell
-cd /d C:\Users\CanFeng\Downloads\tbh_drop_info\TBH_DropMonitor_OpenSource_20260706
 python drop_items_jade_hybrid_ui_umi.py
 ```
 
@@ -116,8 +115,6 @@ http://127.0.0.1/version
 可以参考 `打包.txt`。常用命令：
 
 ```powershell
-cd /d C:\Users\CanFeng\Downloads\tbh_drop_info\TBH_DropMonitor_OpenSource_20260706
-
 python -m nuitka --standalone --onefile --windows-console-mode=disable --windows-uac-admin --windows-icon-from-ico=1212.ico --include-package=jadeview --include-package=frida --include-package=psutil --include-package=PIL --include-package-data=jadeview --include-data-dir="jade_drop_items_ui=jade_drop_items_ui" --include-data-files="drop_items_info_v4_new2.js=drop_items_info_v4_new2.js" --include-data-files="drop_items_config.json=drop_items_config.json" --include-data-files="1212.ico=1212.ico" --include-data-files="赞赏.jpg=赞赏.jpg" --output-dir=build_ui_umi --output-filename="TBH掉落监控-OpenSource.exe" drop_items_jade_hybrid_ui_umi.py
 ```
 
@@ -125,7 +122,6 @@ python -m nuitka --standalone --onefile --windows-console-mode=disable --windows
 
 - 如果 JadeView DLL 没有自动打进去，请按你本机路径额外添加 `JadeView_x64.dll`。
 - 打包路径尽量使用英文目录，避免 Nuitka/VS 链接器在部分电脑上因为中文路径失败。
-- 打包输出目录 `build_ui_umi/` 已在 `.gitignore` 中忽略，不建议上传到 GitHub。
 
 
 ## 打赏
