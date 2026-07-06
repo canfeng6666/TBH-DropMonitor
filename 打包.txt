@@ -1,0 +1,7 @@
+cd /d C:\Users\CanFeng\Downloads\tbh_drop_info\TBH_DropMonitor_OpenSource_20260706
+
+REM 开源版：无网络验证，版本更新接口为 http://127.0.0.1/version
+REM UI 使用外部 jade_drop_items_ui\index.html，打包时需要包含整个 jade_drop_items_ui 目录。
+REM 使用前请先启动 Umi-OCR，并确认 HTTP 服务可用：http://127.0.0.1:1224
+
+python -m nuitka --standalone --onefile --windows-console-mode=disable --windows-uac-admin --windows-icon-from-ico=1212.ico --include-package=jadeview --include-package=frida --include-package=psutil --include-package=PIL --include-package-data=jadeview --include-data-dir="jade_drop_items_ui=jade_drop_items_ui" --include-data-files="C:\Users\CanFeng\AppData\Local\Programs\Python\Python312\Lib\site-packages\jadeview\dll\x64\JadeView_x64.dll=jadeview\dll\x64\JadeView_x64.dll" --include-data-files="drop_items_info_v4_new2.js=drop_items_info_v4_new2.js" --include-data-files="drop_items_config.json=drop_items_config.json" --include-data-files="1212.ico=1212.ico" --include-data-files="赞赏.jpg=赞赏.jpg" --output-dir=build_ui_umi --output-filename="TBH掉落监控-OpenSource.exe" drop_items_jade_hybrid_ui_umi.py
