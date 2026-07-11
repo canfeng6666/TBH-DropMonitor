@@ -15,7 +15,7 @@
 - 支持监控物品列表。
 - 支持命中监控物品后暂停点击，等待掉落列表内监控物品消失后继续。
 - 支持 Umi-OCR HTTP 接口识别宝箱获得提示。
-- 支持市场价格接口显示价格。
+- 支持自行配置市场价格接口显示价格。
 - UI 使用外部 HTML 文件，后续修改界面主要改 `jade_drop_items_ui/index.html`。
 
 ## 目录结构
@@ -82,15 +82,17 @@ python drop_items_jade_hybrid_ui_umi.py
 python drop_items_jade_hybrid_ui_umi.py --console
 ```
 
-## 版本更新接口
+## 可选接口配置
 
-开源版默认请求：
+开源版默认不内置版本更新接口和价格接口。需要启用时，可在启动前自行设置环境变量，变量值填写你自己的接口地址：
 
-```text
-http://127.0.0.1/version
+```powershell
+$env:TBH_UPDATE_API="你的版本更新接口"
+$env:TBH_MARKET_API_URL="你的价格接口"
+python drop_items_jade_hybrid_ui_umi.py
 ```
 
-返回 JSON 示例：
+版本更新接口返回 JSON 示例：
 
 ```json
 {
@@ -108,7 +110,7 @@ http://127.0.0.1/version
 - `url`：更新下载地址，可为空。
 - `sha256`：文件校验，可为空。
 
-如果不需要更新功能，可以忽略这个本机接口；检查更新失败不会影响主功能。
+如果不配置这些接口，检查更新会提示未配置，价格初始化会保留本地缓存，不影响掉落监控主功能。
 
 ## 打包 EXE
 
@@ -122,6 +124,7 @@ python -m nuitka --standalone --onefile --windows-console-mode=disable --windows
 
 - 如果 JadeView DLL 没有自动打进去，请按你本机路径额外添加 `JadeView_x64.dll`。
 - 打包路径尽量使用英文目录，避免 Nuitka/VS 链接器在部分电脑上因为中文路径失败。
+- 打包输出目录 `build_ui_umi/` 已在 `.gitignore` 中忽略，不建议上传到 GitHub。
 
 
 ## 打赏
@@ -131,6 +134,9 @@ python -m nuitka --standalone --onefile --windows-console-mode=disable --windows
 <img src="jade_drop_items_ui/donate.jpg" alt="打赏" width="260">
 
 ## 免责声明
+
+本项目仅用于学习和研究。使用 Frida、内存读取、自动点击等功能可能违反部分软件或游戏的使用条款。  
+请自行承担使用风险，作者不对任何账号、数据、系统或其他损失负责。
 
 本项目仅用于学习和研究。使用 Frida、内存读取、自动点击等功能可能违反部分软件或游戏的使用条款。  
 请自行承担使用风险，作者不对任何账号、数据、系统或其他损失负责。
