@@ -132,7 +132,7 @@ python -m nuitka --standalone --onefile --windows-console-mode=disable --windows
 
 如果这个项目对你有帮助，可以请作者喝杯咖啡。
 
-<img src="收款.png" alt="打赏" width="260">
+<img src="收款.png" alt="打赏" width="460">
 
 ## 免责声明
 
