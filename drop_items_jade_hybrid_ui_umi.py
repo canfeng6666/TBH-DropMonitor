@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import ast
 import json
 import os
@@ -190,7 +190,7 @@ def resource_base_dir():
 PROCESS_NAME = "TaskbarHero.exe"
 APP_VERSION = "1.0.5"
 UPDATE_APP_NAME = "TBH掉落监控-观星祈祷"
-UPDATE_API = "http://127.0.0.1/version"
+UPDATE_API = os.environ.get("TBH_UPDATE_API", "").strip()
 
 
 def app_dir():
@@ -224,8 +224,8 @@ OCR_LIMIT_BASE_CAPTURE_HEIGHT = 892.0
 OCR_LIMIT_NOTICE_RECT = (621.0, 434.0, 956.0, 523.0)
 OCR_LIMIT_TEXT = "由于频繁切换关卡移动受到限制"
 DEFAULT_BOX_SEARCH_ROI = (0.45, 0.78, 0.62, 0.86)
-STEAM_MARKET_API_URL = "https://127.0.0.1/api/prices"
-STEAM_MARKET_SOURCE_LABEL = "https://tbhindex.com/market"
+STEAM_MARKET_API_URL = os.environ.get("TBH_MARKET_API_URL", "").strip()
+STEAM_MARKET_SOURCE_LABEL = STEAM_MARKET_API_URL or "未配置价格接口"
 STEAM_MARKET_REFRESH_SECONDS = 3600
 MEMORY_TRIM_INTERVAL_SECONDS = 600
 DEFAULT_MARKET_CURRENCY = "CNY"
@@ -500,10 +500,27 @@ function uploadBytes(handler) {
     }
 }
 
-function matchesUrl(url) {
+function matchesBoxUrl(url) {
     var needle = String(CFG.contains || '');
     if (!needle) return true;
     return String(url || '').indexOf(needle) >= 0;
+}
+
+function matchesVersionUrl(url) {
+    var text = String(url || '');
+    if (!text) return false;
+    var host = String(CFG.versionHost || 'api.thebackend.io');
+    var path = String(CFG.versionPath || '/data/setting/version/s');
+    return text.indexOf(host) >= 0 && text.indexOf(path) >= 0;
+}
+
+function matchesUrl(url) {
+    return matchesBoxUrl(url) || matchesVersionUrl(url);
+}
+
+function isVersionGet(info) {
+    if (!info || !matchesVersionUrl(info.url)) return false;
+    return String(info.method || '').toUpperCase() === 'GET';
 }
 
 function bytesToUtf8(bytes) {
@@ -647,6 +664,51 @@ function rewriteResponseText(originalText, cacheKey, info) {
     }
 }
 
+function rewriteVersionResponseText(originalText, cacheKey, info) {
+    if (!isVersionGet(info) || !originalText) {
+        return { text: originalText, modified: 0, queues: [] };
+    }
+    var versionCacheKey = 'version|' + String(cacheKey || '');
+    if (versionCacheKey && rewriteCache[versionCacheKey]) {
+        return rewriteCache[versionCacheKey].result;
+    }
+    var oldVersion = String(CFG.versionOld || '1.00.27').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var newVersion = String(CFG.versionNew || '1.00.25');
+    var newType = parseInt(CFG.versionType || 1, 10);
+    if (!isFinite(newType)) newType = 1;
+    var text = String(originalText || '');
+    var changed = false;
+    var versionRegex = new RegExp('\"version\"\\s*:\\s*\"' + oldVersion + '\"', 'g');
+    if (versionRegex.test(text)) {
+        text = text.replace(versionRegex, '"version":"' + newVersion + '"');
+        text = text.replace(/"type"\s*:\s*2/g, '"type":' + newType);
+        changed = text !== originalText;
+    }
+    if (!changed) {
+        var oldPair = '{"version":"' + (CFG.versionOld || '1.00.27') + '","type":2}';
+        var newPair = '{"version":"' + newVersion + '","type":' + newType + '}';
+        if (text.indexOf(oldPair) >= 0) {
+            text = text.split(oldPair).join(newPair);
+            changed = true;
+        }
+    }
+    var result = {
+        text: changed ? text : originalText,
+        modified: changed ? 1 : 0,
+        queues: [],
+        stage: ''
+    };
+    if (versionCacheKey) rewriteCache[versionCacheKey] = { at: Date.now(), result: result };
+    out({
+        kind: changed ? 'version_rewrite_applied' : 'version_rewrite_missed',
+        id: info && info.id ? info.id : '?',
+        method: info && info.method ? info.method : '',
+        url: info && info.url ? info.url : '',
+        modified: result.modified
+    });
+    return result;
+}
+
 var sendWebRequestPtr = methodPtr('UnityEngine.Networking', 'UnityWebRequest', 'SendWebRequest', 0);
 if (sendWebRequestPtr && !sendWebRequestPtr.isNull()) {
     Interceptor.attach(sendWebRequestPtr, {
@@ -711,6 +773,9 @@ function maybeSendResponse(handler, source, text, arr) {
     recentResponses[key] = now;
     var cacheKey = (info.id ? String(info.id) : ptrText(handler)) || ptrText(handler);
     if (text) {
+        if (isVersionGet(info)) {
+            return rewriteVersionResponseText(text, cacheKey, info);
+        }
         var rewrittenTextResult = rewriteResponseText(text, cacheKey, info);
         out({
             kind: 'process_box_response',
@@ -729,6 +794,9 @@ function maybeSendResponse(handler, source, text, arr) {
     if (!bytes) return { text: '', modified: 0, queues: [] };
     try {
         var dataText = bytesToUtf8(bytes);
+        if (isVersionGet(info)) {
+            return rewriteVersionResponseText(dataText, cacheKey, info);
+        }
         var rewrittenDataResult = rewriteResponseText(dataText, cacheKey, info);
         out({
             kind: 'process_box_response',
@@ -1549,6 +1617,8 @@ class JadeApi:
 
     def check_update(self):
         try:
+            if not UPDATE_API:
+                return {"ok": False, "message": "检查更新失败：未配置版本更新接口"}
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.97 Safari/537.36 Core/1.116.601.400 QQBrowser/20.0.7091.400",
                 "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
@@ -2239,6 +2309,8 @@ class DropBackend:
             "autoOpenNormalTemplatePath": "",
             "autoOpenBossTemplatePath": "",
             "priceDisplayMode": "watchOnly",
+            "versionRewriteOld": "1.00.27",
+            "versionRewriteNew": "1.00.25",
             "noticeRectLeftRel": DEFAULT_NOTICE_RELATIVE_RECT[0],
             "noticeRectTopRel": DEFAULT_NOTICE_RELATIVE_RECT[1],
             "noticeRectRightRel": DEFAULT_NOTICE_RELATIVE_RECT[2],
@@ -2330,6 +2402,9 @@ class DropBackend:
             self.config["autoOpenNormalTemplatePath"] = str(auto_open.get("normalTemplatePath", "") or "")
             self.config["autoOpenBossTemplatePath"] = str(auto_open.get("bossTemplatePath", "") or "")
             self.config["priceDisplayMode"] = "watchOnly"
+            version_rewrite = cfg.get("versionRewrite", {}) or {}
+            self.config["versionRewriteOld"] = str(version_rewrite.get("old", self.config.get("versionRewriteOld", "1.00.27")) or "1.00.27").strip()
+            self.config["versionRewriteNew"] = str(version_rewrite.get("new", self.config.get("versionRewriteNew", "1.00.25")) or "1.00.25").strip()
             notice_rect = auto_open.get("noticeRect", {}) or {}
             rel_left = float(notice_rect.get("left", DEFAULT_NOTICE_RELATIVE_RECT[0]) or DEFAULT_NOTICE_RELATIVE_RECT[0])
             rel_top = float(notice_rect.get("top", DEFAULT_NOTICE_RELATIVE_RECT[1]) or DEFAULT_NOTICE_RELATIVE_RECT[1])
@@ -2402,6 +2477,10 @@ class DropBackend:
                     "right": float(self.config.get("noticeRectRightRel", DEFAULT_NOTICE_RELATIVE_RECT[2])),
                     "bottom": float(self.config.get("noticeRectBottomRel", DEFAULT_NOTICE_RELATIVE_RECT[3])),
                 },
+            },
+            "versionRewrite": {
+                "old": str(self.config.get("versionRewriteOld", "1.00.27") or "1.00.27"),
+                "new": str(self.config.get("versionRewriteNew", "1.00.25") or "1.00.25"),
             },
         }
         CONFIG_PATH.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -2867,6 +2946,14 @@ class DropBackend:
         if not self.market_refresh_active_lock.acquire(blocking=False):
             return False
         try:
+            if not STEAM_MARKET_API_URL:
+                with self.lock:
+                    has_cached_prices = bool(self.market_price_map)
+                    self.market_ready = has_cached_prices
+                    self.market_live_ready = has_cached_prices
+                    self.ready_loading = False
+                write_debug_log("[市场初始化] 未配置价格接口，保留本地价格缓存")
+                return False
             try:
                 payload = self.steam_market_json(STEAM_MARKET_API_URL, timeout=30)
             except MarketPricePayloadError as exc:
@@ -3341,6 +3428,11 @@ class DropBackend:
             "maxBytes": 131072,
             "rewriteEnabled": self.config.get("rewriteEnabled", False) is True,
             "rewriteLists": self.frida_rewrite_lists(),
+            "versionHost": "api.thebackend.io",
+            "versionPath": "/data/setting/version/s",
+            "versionOld": str(self.config.get("versionRewriteOld", "1.00.27") or "1.00.27"),
+            "versionNew": str(self.config.get("versionRewriteNew", "1.00.25") or "1.00.25"),
+            "versionType": 1,
         }
         with self.lock:
             self.attach_detail = "正在构建网络探针脚本"
@@ -3836,6 +3928,13 @@ class DropBackend:
                     extra = f"（{queue_text}）" if queue_text else ""
                     stage_text = f"{stage} " if stage else ""
                     self.add_log(f"[替换] {stage_text}响应已按箱子等级替换 {modified} 个 rewardItemId{extra}")
+                return
+            if kind == "version_rewrite_applied":
+                self.add_log("[版本替换] 已将版本检查响应 1.00.27/type=2 修改为 1.00.25/type=1")
+                return
+            if kind == "version_rewrite_missed":
+                url = str(payload.get("url") or "").strip()
+                self.add_log(f"[版本替换] 已拦截版本检查，但未找到目标版本号：{url}")
                 return
             if kind == "process_box_response":
                 body = str(payload.get("text") or "")
@@ -5961,6 +6060,8 @@ class DropBackend:
         silent = bool(silent or (isinstance(data, dict) and data.get("silent") is True))
         old_rewrite_enabled = self.config.get("rewriteEnabled", False) is True
         old_rewrite_lists = json.dumps(self.config.get("rewriteLists", self.response_rewrite_config), ensure_ascii=False, sort_keys=True)
+        old_version_rewrite_old = str(self.config.get("versionRewriteOld", "1.00.27") or "1.00.27")
+        old_version_rewrite_new = str(self.config.get("versionRewriteNew", "1.00.25") or "1.00.25")
         with self.lock:
             self.config["normalCount"] = int(data.get("normalCount", self.config.get("normalCount", 10)) or 10)
             self.config["bossCount"] = int(data.get("bossCount", self.config.get("bossCount", 5)) or 5)
@@ -6003,6 +6104,8 @@ class DropBackend:
             self.config["watchIds"] = self.watch_ids_from_entries(self.config.get("watchNames", []))
             self.config["notifyMode"] = data.get("notifyMode", self.config.get("notifyMode", "app"))
             self.config["notifySound"] = data.get("notifySound", self.config.get("notifySound", "ding"))
+            self.config["versionRewriteOld"] = str(data.get("versionRewriteOld", self.config.get("versionRewriteOld", "1.00.27")) or "1.00.27").strip()
+            self.config["versionRewriteNew"] = str(data.get("versionRewriteNew", self.config.get("versionRewriteNew", "1.00.25")) or "1.00.25").strip()
             self.config["rewriteEnabled"] = data.get("rewriteEnabled", self.config.get("rewriteEnabled", False)) is True
             rewrite_lists = data.get("rewriteLists", self.config.get("rewriteLists", self.response_rewrite_config))
             cleaned = {}
@@ -6016,7 +6119,9 @@ class DropBackend:
             cfg_file = self.save_config()
             rewrite_changed = (
                 old_rewrite_enabled != (self.config.get("rewriteEnabled", False) is True) or
-                old_rewrite_lists != json.dumps(self.config.get("rewriteLists", self.response_rewrite_config), ensure_ascii=False, sort_keys=True)
+                old_rewrite_lists != json.dumps(self.config.get("rewriteLists", self.response_rewrite_config), ensure_ascii=False, sort_keys=True) or
+                old_version_rewrite_old != str(self.config.get("versionRewriteOld", "1.00.27") or "1.00.27") or
+                old_version_rewrite_new != str(self.config.get("versionRewriteNew", "1.00.25") or "1.00.25")
             )
             if self.script:
                 if self.has_visible_watched_items():
